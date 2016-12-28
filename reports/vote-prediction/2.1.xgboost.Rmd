@@ -1,0 +1,72 @@
+---
+title: "Build.Xgboost"
+author: "Steven Zhang"
+date: "Dec 10, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Xgboost
+
+The related material is [here](http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html)
+
+```{r loading}
+df.train <- read.csv("data/training.csv")
+df.test <- read.csv("data/testing.csv")
+df.validation <- read.csv("data/validation.csv")
+```
+
+### Train the model
+
+```{r training}
+library(xgboost)
+dtrain <- xgb.DMatrix(data = apply(as.matrix(df.train[,-120]), 2, as.numeric), label = as.numeric(df.train$target) - 1)
+dtest <- xgb.DMatrix(data = apply(as.matrix(df.test[,-120]), 2, as.numeric), label = as.numeric(df.test$target) - 1)
+watchlist <- list(train=dtrain, test=dtest)
+fit.xg.tree <- xgb.train(data = dtrain, max.depth = 2, eta=1, nthread = 2, nround = 8, watchlist = watchlist, objective = "binary:logistic")
+# xgb.save(fit.xg.tree, "model/fit.xg.tree.model")
+fit.xg.liner <- xgb.train(data = dtrain, max.depth = 2, eta=1, nthread = 2, nround = 2, watchlist = watchlist, booster = "gblinear" ,objective = "binary:logistic")
+# xgb.save(fit.xg.tree, "model/fit.xg.liner.model")
+```
+
+### Predefined Function
+
+```{r predefined}
+my.predict <- function(fit, testing) {
+    output <- predict(fit, testing)
+    output <- as.numeric(output > 0.5)
+    output <- as.factor(output)
+    levels(output) <- c("Democrat", "Republican")
+    output
+}
+```
+
+### Test the model
+
+```{r testing}
+library(caret)
+pred <- my.predict(fit.xg.tree, dtest)
+confusionMatrix(pred, df.test$target)
+write.csv(pred, "output/test.xg.tree.csv", row.names = FALSE)
+pred <- my.predict(fit.xg.liner, dtest)
+confusionMatrix(pred, df.test$target)
+write.csv(pred, "output/test.xg.liner.csv", row.names = FALSE)
+```
+
+### Create Validation
+
+```{r validation}
+dvalidation <- xgb.DMatrix(data = apply(as.matrix(df.validation), 2, as.numeric))
+
+write.csv(my.predict(fit.xg.tree, dvalidation), "output/xg.tree.csv", row.names = FALSE)
+write.csv(my.predict(fit.xg.liner, dvalidation), "output/xg.liner.csv", row.names = FALSE)
+```
+
+### Env.
+
+```{r env}
+sessionInfo()
+```

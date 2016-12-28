@@ -1,0 +1,94 @@
+---
+title: "Build SVM GBM"
+author: "Steven Zhang"
+date: "Dec 10, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+## KNN & Rpart & Logistic Regression
+
+```{r loading}
+df.train <- read.csv("data/training.csv")
+df.test <- read.csv("data/testing.csv")
+df.validation <- read.csv("data/validation.csv")
+```
+
+### Train the model
+
+```{r training, results='hide'}
+library(e1071)
+fit.svm <- svm(target ~ ., data = df.train)
+saveRDS(fit.svm, "model/fit.svm.model")
+
+library(caret)
+library(gbm)
+temp <- df.train
+temp$target <- as.integer(temp$target) - 1
+fit.gbm.bernoulli <- gbm(target ~ ., data = temp, distribution = "bernoulli")
+saveRDS(fit.gbm.bernoulli, "model/fit.gbm.bernoulli.model")
+ctrl = trainControl(method = "repeatedcv", number = 5, repeats = 5)
+set.seed(300)
+system.time(fit.gbm.boost <- train(target ~ ., data = df.train, method = "gbm", trControl = ctrl))
+saveRDS(fit.gbm.boost, "model/fit.gbm.boost.model")
+```
+
+### Predefined Function
+
+```{r predefined}
+transforming.prob <- function(x) {
+    output <- x
+    output[output < quantile(output, 0.53)] <- 0
+    output[output >= quantile(output, 0.53)] <- 1
+    output <- as.factor(output)
+    levels(output) <- c("Democrat", "Republican")
+    output
+}
+transforming.multi <- function(x) {
+    output <- max.col(x, "last")
+    output <- as.factor(output)
+    levels(output) <- c("Democrat", "Republican")
+    output
+}
+```
+
+### Test the model
+
+```{r testing}
+pred.svm <- predict(fit.svm, df.test)
+write.csv(pred.svm, "output/test.svm.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred.svm)
+
+pred.gbm.bernoulli <- predict(fit.gbm.bernoulli, newdata = df.test, n.trees = 5)
+pred.gbm.bernoulli <- as.factor(pred.gbm.bernoulli)
+levels(pred.gbm.bernoulli) <- c("Democrat", "Republican")
+write.csv(pred.gbm.bernoulli, "output/test.gbm.bernoulli.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred.gbm.bernoulli)
+
+pred.gbm.boost <- predict(fit.gbm.boost, newdata = df.test, n.trees = 5)
+write.csv(pred.gbm.boost, "output/test.gbm.boost.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred.gbm.boost)
+```
+
+### Create Validation
+
+```{r validation}
+write.csv(predict(fit.svm, df.validation), "output/svm.csv", row.names = FALSE)
+
+pred.gbm.bernoulli <- predict(fit.gbm.bernoulli, newdata = df.validation, n.trees = 5)
+pred.gbm.bernoulli <- as.factor(pred.gbm.bernoulli)
+levels(pred.gbm.bernoulli) <- c("Democrat", "Republican")
+write.csv(pred.gbm.bernoulli, "output/gbm.bernoulli.csv", row.names = FALSE)
+
+pred.gbm.boost <- predict(fit.gbm.boost, newdata = df.validation, n.trees = 5)
+write.csv(pred.gbm.boost, "output/gbm.boost.csv", row.names = FALSE)
+```
+
+### Env.
+
+```{r env}
+sessionInfo()
+```

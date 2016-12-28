@@ -1,0 +1,89 @@
+---
+title: "Data Preparing"
+author: "Steven Zhang"
+date: "Dec 10, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+library(ggplot2)
+library(lattice)
+library(caret)
+set.seed(320300)
+```
+
+# 1 - Synopsis
+
+# 2 - Data Preprocessing
+
+```{r preprocess-loading, include = FALSE}
+df.withna <- read.csv("data/train2016.csv", na.strings = "")[,-1]
+df.withna.validation <- read.csv("data/test2016.csv", na.strings = "")[,-1]
+df.total <- rbind(df.withna[,-6], df.withna.validation)
+# summary(as.factor(apply(df.total, 2, function(x) sum(is.na(x)) / length(x))))
+```
+
+```{r convert, include = FALSE}
+df.withna$YOB <- as.integer(as.character(df.withna$YOB))
+df.withna$YOB <- cut(df.withna$YOB, breaks = c(0, 1960, 1970, 1980, 1990, 2000, 3000))
+levels(df.withna$YOB) <- c("50s", "60s", "70s", "80s", "90s", "00s")
+df.withna.validation$YOB <- as.integer(as.character(df.withna.validation$YOB))
+df.withna.validation$YOB <- cut(df.withna.validation$YOB, breaks = c(0, 1960, 1970, 1980, 1990, 2000, 3000))
+levels(df.withna.validation$YOB) <- c("50s", "60s", "70s", "80s", "90s", "00s")
+df.total$YOB <- as.integer(as.character(df.total$YOB))
+df.total$YOB <- cut(df.total$YOB, breaks = c(0, 1960, 1970, 1980, 1990, 2000, 3000))
+levels(df.total$YOB) <- c("50s", "60s", "70s", "80s", "90s", "00s")
+```
+
+## 2.1 - Imputing
+
+```{r preprocess-na, include = FALSE, eval = FALSE}
+library(Rcpp)
+library(mice)
+imputed_Data <- mice(df.total, m = 1, maxit = 3, method = 'pmm', seed = 500)
+completeData <- complete(imputed_Data, 1)
+detach("package:mice", unload=TRUE)
+```
+
+```{r dummy, eval = FALSE}
+# dummies = model.matrix(~df.total$Income)
+# df.total$YOB <- as.integer(df.total$YOB)
+res <- model.matrix(~completeData[,1])
+for (i in 2:106) {
+    res <- cbind(res, model.matrix(~completeData[,i]))
+}
+res <- as.data.frame(res)
+nsv <- nearZeroVar(res, saveMetrics = TRUE)
+res <- res[,!nsv$nzv]
+names(res) <- paste("X", as.character(1:ncol(res)), sep = "")
+# res$target <- temp$target
+completeData <- res
+rm(nsv, res)
+```
+
+```{r partition}
+completeData <- read.csv("data/completeData.csv")
+
+inTrain <- createDataPartition(y = df.withna$Party, p = 0.8, list = FALSE)
+validation <- completeData[5569:6960,]
+total.use <- completeData[1:5568,]
+total.use$target <- df.withna$Party
+training <- total.use[inTrain,]
+testing <- total.use[-inTrain,]
+df.withna.training <- df.withna[inTrain,]
+df.withna.testing <- df.withna[-inTrain,]
+```
+
+```{r rm}
+rm(imputed_Data)
+```
+
+```{r writing.data}
+write.csv(testing, "data/testing.csv", row.names = FALSE)
+write.csv(training, "data/training.csv", row.names = FALSE)
+write.csv(validation, "data/validation.csv", row.names = FALSE)
+write.csv(df.withna.validation, "data/validation.na.csv", row.names = FALSE)
+write.csv(df.withna.training, "data/training.na.csv", row.names = FALSE)
+write.csv(df.withna.testing, "data/testing.na.csv", row.names = FALSE)
+```

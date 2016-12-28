@@ -1,0 +1,98 @@
+---
+title: "Create Final Submission"
+author: "Steven Zhang"
+date: "Dec 10, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load the Data
+
+```{r loading.init, eval=FALSE}
+df.train <- read.csv("data/testing.csv")
+target <- df.train$target
+
+test.xg.tree <- read.csv("output/test.xg.tree.csv")
+test.xg.liner <- read.csv("output/test.xg.liner.csv")
+test.svm <- read.csv("output/test.svm.csv")
+test.rpart <- read.csv("output/test.rpart.csv")
+test.rf <- read.csv("output/test.rf.csv")
+test.naiveBayes <- read.csv("output/test.naiveBayes.csv")
+test.lg <- read.csv("output/test.lg.csv")
+test.knn <- read.csv("output/test.knn.csv")
+test.gbm.boost <- read.csv("output/test.gbm.boost.csv")
+test.gbm.bernoulli <- read.csv("output/test.gbm.bernoulli.csv")
+test.c50 <- read.csv("output/test.c50.csv")
+
+full.set <- data.frame(xg.tree = test.xg.tree, xg.liner = test.xg.liner, svm = test.svm, rpart = test.rpart, rf = test.rf, naiveBayes = test.naiveBayes, lg = test.lg, knn = test.knn, gbm.boost = test.gbm.boost, bernulli = test.gbm.bernoulli, c50 = test.c50, target = target)
+names(full.set) <- c("xg.tree", "xg.liner", "svm", "rpart", "rf", "naiveBayes", "lg", "knn", "gbm.boost", "gbm.bernulli", "c50", "target")
+
+library(caret)
+inTrain <- createDataPartition(full.set$target, p = 0.8, list = FALSE)
+training <- full.set[inTrain,]
+testing <- full.set[-inTrain,]
+
+xg.tree <- read.csv("output/xg.tree.csv")
+xg.liner <- read.csv("output/xg.liner.csv")
+svm <- read.csv("output/svm.csv")
+rpart <- read.csv("output/rpart.csv")
+rf <- read.csv("output/rf.csv")
+naiveBayes <- read.csv("output/naiveBayes.csv")
+lg <- read.csv("output/lg.csv")
+knn <- read.csv("output/knn.csv")
+gbm.boost <- read.csv("output/gbm.boost.csv")
+gbm.bernoulli <- read.csv("output/gbm.bernoulli.csv")
+c50 <- read.csv("output/c50.csv")
+
+validation <- data.frame(xg.tree = xg.tree, xg.liner = xg.liner, svm = svm, rpart = rpart, rf = rf, naiveBayes = naiveBayes, lg = lg, knn = knn, gbm.boost = gbm.boost, bernulli = gbm.bernoulli, c50 = c50)
+names(validation) <- c("xg.tree", "xg.liner", "svm", "rpart", "rf", "naiveBayes", "lg", "knn", "gbm.boost", "gbm.bernulli", "c50")
+
+write.csv(training, "data/final.training.csv", row.names = FALSE)
+write.csv(testing, "data/final.testing.csv", row.names = FALSE)
+write.csv(validation, "data/final.validation.csv", row.names = FALSE)
+```
+
+## Loading 
+
+```{r loading}
+training <- read.csv("data/final.training.csv")
+testing <- read.csv("data/final.testing.csv")
+validation <- read.csv("data/final.validation.csv")
+df.id <- read.csv("data/test2016.csv")
+id <- df.id$USER_ID
+```
+
+## Train Com Fit
+
+```{r train.fit}
+library(randomForest)
+library(caret)
+# fit.rf <- randomForest(target ~ xg.tree + xg.liner + rpart + rf + naiveBayes + lg + gbm.boost + c50, data = training)
+fit.rf <- randomForest(target ~ ., data = training)
+pred <- predict(fit.rf, testing)
+confusionMatrix(pred, testing$target)$overall
+```
+
+## Test Com Fit
+
+```{r test}
+pred <- predict(fit.rf, testing)
+confusionMatrix(pred, testing$target)
+```
+
+## Use It
+
+```{r use}
+pred <- predict(fit.rf, validation)
+output <- data.frame(USER_ID = id, Predictions = pred)
+write.csv(output, "prediction20161210.csv", row.names = FALSE)
+```
+
+## Env
+
+```{r env}
+sessionInfo()
+```

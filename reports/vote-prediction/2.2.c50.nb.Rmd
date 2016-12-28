@@ -1,0 +1,57 @@
+---
+title: "Build C50 & Bayes"
+author: "Steven Zhang"
+date: "Dec 10, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## C5.0 & Bayes
+
+These Two algorithm can run directly on data set with missing value
+
+```{r loading}
+df.train <- read.csv("data/training.na.csv")
+df.test <- read.csv("data/testing.na.csv")
+df.validation <- read.csv("data/validation.na.csv")
+```
+
+### Train the model
+
+```{r training}
+library(C50)
+fit.c50 <- C5.0(Party ~ ., data = df.train, na.action = na.pass, trials = 20)
+saveRDS(fit.c50, "model/fit.c50.model")
+library(e1071)
+fit.naiveBayes <- naiveBayes(Party ~ ., data = df.train)
+saveRDS(fit.naiveBayes, "model/fit.naiveBayes.model")
+```
+
+### Test the model
+
+```{r testing}
+library(caret)
+pred.c50 <- predict.C5.0(fit.c50, df.test)
+confusionMatrix(df.test$Party, pred.c50)
+write.csv(pred.c50, "output/test.c50.csv", row.names = FALSE)
+
+pred.naiveBayes <- predict(fit.naiveBayes, df.test)
+confusionMatrix(df.test$Party, pred.naiveBayes)
+write.csv(pred.naiveBayes, "output/test.naiveBayes.csv", row.names = FALSE)
+```
+
+### Create Validation
+
+```{r validation}
+write.csv(predict(fit.c50, df.validation), "output/c50.csv", row.names = FALSE)
+write.csv(predict(fit.naiveBayes, df.validation), "output/naiveBayes.csv", row.names = FALSE)
+```
+
+### Env.
+
+```{r env}
+sessionInfo()
+```

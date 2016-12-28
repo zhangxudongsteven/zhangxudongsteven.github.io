@@ -1,0 +1,88 @@
+---
+title: "Build KNN Rpart LR"
+author: "Steven Zhang"
+date: "Dec 10, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+## KNN & Rpart & Logistic Regression
+
+```{r loading}
+df.train <- read.csv("data/training.csv")
+df.test <- read.csv("data/testing.csv")
+df.validation <- read.csv("data/validation.csv")
+```
+
+### Train the model
+
+```{r training}
+fit.lg <- glm(target ~ ., data = df.train, family = "binomial")
+saveRDS(fit.lg, "model/fit.lg.model")
+library(caret)
+fit.knn <- knn3(target ~ ., data = df.train, k = 10)
+saveRDS(fit.knn, "model/fit.knn.model")
+library(rpart)
+fit.rpart <- rpart(target ~ ., data = df.train)
+saveRDS(fit.rpart, "model/fit.rpart.model")
+library(randomForest)
+rf.fit <- randomForest(target ~ ., data = df.train)
+saveRDS(rf.fit, "model/fit.rf.model")
+```
+
+### Predefined Function
+
+```{r predefined}
+transforming.prob <- function(x) {
+    output <- x
+    output[output < quantile(output, 0.53)] <- 0
+    output[output >= quantile(output, 0.53)] <- 1
+    output <- as.factor(output)
+    levels(output) <- c("Democrat", "Republican")
+    output
+}
+transforming.multi <- function(x) {
+    output <- max.col(x, "last")
+    output <- as.factor(output)
+    levels(output) <- c("Democrat", "Republican")
+    output
+}
+```
+
+### Test the model
+
+```{r testing}
+pred <- transforming.prob(predict(fit.lg, df.test, type = "response"))
+write.csv(pred, "output/test.lg.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred)
+
+pred <- transforming.multi(predict(fit.knn, df.test))
+write.csv(pred, "output/test.knn.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred)
+
+pred <- transforming.multi(predict(fit.rpart, df.test))
+write.csv(pred, "output/test.rpart.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred)
+
+pred <- predict(rf.fit, df.test, type = "response")
+write.csv(pred, "output/test.rf.csv", row.names = FALSE)
+confusionMatrix(df.test$target, pred)
+```
+
+### Create Validation
+
+```{r validation}
+write.csv(transforming.prob(predict(fit.lg, df.validation, type = "response")), "output/lg.csv", row.names = FALSE)
+write.csv(transforming.multi(predict(fit.knn, df.validation)), "output/knn.csv", row.names = FALSE)
+write.csv(transforming.multi(predict(fit.rpart, df.validation)), "output/rpart.csv", row.names = FALSE)
+write.csv(predict(rf.fit, df.validation, type = "response"), "output/rf.csv", row.names = FALSE)
+```
+
+### Env.
+
+```{r env}
+sessionInfo()
+```
